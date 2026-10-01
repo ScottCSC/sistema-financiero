@@ -1,0 +1,37 @@
+# Entornos y dependencias
+venv/
+.venv/
+env/
+node_modules/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Credenciales y configuración privada
+.env
+.env.*
+!.env.example
+.cuenta-local.json
+*.pem
+*.key
+
+# Datos financieros locales y planillas bancarias
+cartola.db
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.csv
+*.xls
+*.xlsx
+
+# Archivos temporales
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# frontend/dist se publica para que FastAPI sirva la SPA compilada.
