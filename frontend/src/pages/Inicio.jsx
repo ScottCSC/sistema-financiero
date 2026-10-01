@@ -23,6 +23,7 @@ import {
   exportarExcel,
   getCartola,
   getConfiguracion,
+  getDiccionarioClasificacion,
   importarExcel,
 } from "../api.js";
 import { formatearFecha, formatearMoneda } from "../utils/formato.js";
@@ -95,6 +96,7 @@ function Inicio() {
   const [entradaRapida, setEntradaRapida] = useState(nuevoMovimientoVacio);
   const [guardandoRapido, setGuardandoRapido] = useState(false);
   const [mensajeIngreso, setMensajeIngreso] = useState(null);
+  const [diccionarioClasificacion, setDiccionarioClasificacion] = useState(null);
   const [importandoExcel, setImportandoExcel] = useState(false);
   const [exportandoExcel, setExportandoExcel] = useState(false);
   const [editandoId, setEditandoId] = useState(null);
@@ -141,6 +143,21 @@ function Inicio() {
   useEffect(() => {
     void Promise.resolve().then(cargar);
   }, [cargar]);
+
+  useEffect(() => {
+    let activo = true;
+    async function cargarMemoriaClasificacion() {
+      try {
+        const diccionario = await getDiccionarioClasificacion();
+        if (activo) setDiccionarioClasificacion(diccionario);
+      } catch {
+        // El Libro Banco sigue disponible; la memoria se vuelve a consultar al importar.
+        if (activo) setDiccionarioClasificacion(null);
+      }
+    }
+    void cargarMemoriaClasificacion();
+    return () => { activo = false; };
+  }, []);
 
   useEffect(() => {
     let activo = true;
@@ -599,7 +616,12 @@ function Inicio() {
 
     setImportandoExcel(true);
     setMensajeIngreso(null);
+    let memoriaDisponible = false;
     try {
+      // Refrescar antes de subir incluye las clasificaciones recién corregidas.
+      const diccionario = await getDiccionarioClasificacion();
+      setDiccionarioClasificacion(diccionario);
+      memoriaDisponible = true;
       const resultado = await importarExcel(archivo);
       await cargar();
       const duplicados = resultado.filas_duplicadas ?? 0;
@@ -620,7 +642,9 @@ function Inicio() {
         texto:
           typeof detalle === "string"
             ? detalle
-            : "No se pudo importar el archivo. Compruebe su formato y contenido.",
+            : memoriaDisponible
+              ? "No se pudo importar el archivo. Compruebe su formato y contenido."
+              : "No se pudo leer la memoria de clasificación. Intente importar nuevamente.",
       });
     } finally {
       setImportandoExcel(false);
@@ -744,6 +768,9 @@ function Inicio() {
               type="button"
               className="boton-importar-excel"
               onClick={() => archivoExcelRef.current?.click()}
+              title={diccionarioClasificacion && Object.keys(diccionarioClasificacion).length > 0
+                ? "Las descripciones conocidas reciben automáticamente su clasificación anterior."
+                : "Se consultará el historial; las descripciones nuevas quedarán sin clasificar."}
               disabled={
                 importandoExcel || exportandoExcel || guardandoRapido || editandoId !== null
               }

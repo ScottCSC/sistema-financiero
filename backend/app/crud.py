@@ -298,6 +298,47 @@ def list_movimientos_ordenados(
     )
 
 
+def normalizar_descripcion(valor: str | None) -> str:
+    """Unificar mayúsculas y espacios sin modificar la descripción guardada."""
+    return " ".join((valor or "").lower().split())
+
+
+def get_diccionario_clasificacion(
+    db: Session, cuenta_id: int = 1
+) -> dict[str, dict[str, str]]:
+    """Recordar la clasificación del movimiento más reciente de cada descripción."""
+    historial = (
+        db.query(
+            models.Movimiento.descripcion,
+            models.Movimiento.categoria,
+            models.Movimiento.subcategoria,
+        )
+        .filter(
+            models.Movimiento.cuenta_id == cuenta_id,
+            models.Movimiento.categoria.isnot(None),
+            func.lower(func.trim(models.Movimiento.categoria)) != "sin clasificar",
+        )
+        .order_by(models.Movimiento.fecha.desc(), models.Movimiento.id.desc())
+        .all()
+    )
+    diccionario: dict[str, dict[str, str]] = {}
+    for descripcion, categoria, subcategoria in historial:
+        clave = normalizar_descripcion(descripcion)
+        categoria = (categoria or "").strip()
+        if (
+            not clave
+            or clave in diccionario
+            or not categoria
+            or normalizar_descripcion(categoria) == "sin clasificar"
+        ):
+            continue
+        diccionario[clave] = {
+            "categoria": categoria,
+            "subcategoria": (subcategoria or "").strip() or "Sin subcategoría",
+        }
+    return diccionario
+
+
 def build_cartola(db: Session, cuenta_id: int) -> schemas.CartolaRead | None:
     cuenta = get_cuenta(db, cuenta_id)
     if cuenta is None:

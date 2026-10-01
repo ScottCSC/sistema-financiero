@@ -123,6 +123,16 @@ def _buscar_columna(encabezados: list[object], palabras: tuple[str, ...]):
     return None
 
 
+def _buscar_columna_exacta(encabezados: list[object], aliases: tuple[str, ...]):
+    encabezados_normalizados = [_normalizar_encabezado(columna) for columna in encabezados]
+    for alias in aliases:
+        alias_normalizado = _normalizar_encabezado(alias)
+        for posicion, encabezado in enumerate(encabezados_normalizados):
+            if encabezado == alias_normalizado:
+                return posicion
+    return None
+
+
 def _esta_vacio(valor: object) -> bool:
     if pd.isna(valor):
         return True
@@ -369,6 +379,13 @@ def listar_movimientos(cuenta_id: int = 1, db: Session = Depends(get_db)):
     return crud.list_movimientos_ordenados(db, cuenta_id)
 
 
+@app.get("/api/diccionario-clasificacion")
+def leer_diccionario_clasificacion(cuenta_id: int = 1, db: Session = Depends(get_db)):
+    if crud.get_cuenta(db, cuenta_id) is None:
+        raise HTTPException(status_code=404, detail="Cuenta no encontrada")
+    return crud.get_diccionario_clasificacion(db, cuenta_id)
+
+
 @app.post("/movimientos/importar")
 def importar_movimientos(
     file: UploadFile = File(...), db: Session = Depends(get_db)
@@ -388,8 +405,22 @@ def importar_movimientos(
         "fecha": _buscar_columna(encabezados, ("fecha",)),
         "sucursal": _buscar_columna(encabezados, ("sucursal",)),
         "descripcion": _buscar_columna(encabezados, ("descripcion", "detalle")),
-        "centro_costo": _buscar_columna(
-            encabezados, ("centro de costo", "centro costo", "centro de coste", "centro coste")
+        "centro_costo": _buscar_columna_exacta(
+            encabezados,
+            (
+                "Nº Documento",
+                "N° Documento",
+                "N de documento",
+                "Nº de documento",
+                "N° de documento",
+                "Documento",
+                "Nro. Doc.",
+                "Nro. Documento",
+                "Centro de Costo",
+                "Centro Costo",
+                "Centro de Coste",
+                "Centro Coste",
+            ),
         ),
         "categoria": next(
             (
@@ -449,6 +480,7 @@ def importar_movimientos(
         if posicion is not None:
             dataframe.iloc[:, posicion] = dataframe.iloc[:, posicion].fillna(0)
 
+    diccionario_clasificacion = crud.get_diccionario_clasificacion(db, 1)
     movimientos = []
     omitidos_antes_de_insertar = 0
     filas_procesadas = len(dataframe)
@@ -506,6 +538,16 @@ def importar_movimientos(
             if posiciones["subcategoria"] is not None
             else "Sin subcategoría"
         ) or "Sin subcategoría"
+        if crud.normalizar_descripcion(categoria) == "sin clasificar":
+            clasificacion_historica = diccionario_clasificacion.get(
+                crud.normalizar_descripcion(descripcion)
+            )
+            if clasificacion_historica is not None:
+                categoria = clasificacion_historica["categoria"]
+                subcategoria = clasificacion_historica["subcategoria"]
+            else:
+                categoria = "Sin clasificar"
+                subcategoria = "Sin subcategoría"
         if (
             not sucursal
             or not descripcion
@@ -585,7 +627,7 @@ def exportar_movimientos(db: Session = Depends(get_db)):
         "Fecha",
         "Sucursal",
         "Descripción",
-        "Centro de Costo",
+        "Nº Documento",
         "Categoría",
         "Subcategoría",
         "Cargos",
@@ -597,7 +639,7 @@ def exportar_movimientos(db: Session = Depends(get_db)):
             "Fecha": linea.fecha,
             "Sucursal": linea.sucursal,
             "Descripción": linea.descripcion,
-            "Centro de Costo": linea.centro_costo,
+            "Nº Documento": linea.centro_costo or "",
             "Categoría": linea.categoria,
             "Subcategoría": linea.subcategoria,
             "Cargos": linea.monto if linea.tipo == schemas.TipoMovimiento.CARGO else None,

@@ -40,6 +40,13 @@ export async function getMovimientos(cuentaId = CUENTA_ID) {
   return data;
 }
 
+export async function getDiccionarioClasificacion(cuentaId = CUENTA_ID) {
+  const { data } = await api.get("/api/diccionario-clasificacion", {
+    params: { cuenta_id: cuentaId },
+  });
+  return data;
+}
+
 export async function actualizarSaldoInicial(id, nuevoSaldo) {
   const { data } = await api.put(`/cuentas/${id}/saldo_inicial`, {
     nuevo_saldo: Number.parseInt(nuevoSaldo, 10),
