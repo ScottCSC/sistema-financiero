@@ -58,6 +58,13 @@ export async function eliminarMovimiento(movimientoId) {
   await api.delete(`/movimientos/${movimientoId}`);
 }
 
+export async function eliminarMovimientosMasivo(ids) {
+  const { data } = await api.delete("/api/movimientos/masivo", {
+    data: ids,
+  });
+  return data;
+}
+
 export async function actualizarMovimiento(movimientoId, datos) {
   const { data } = await api.put(`/movimientos/${movimientoId}`, datos);
   return data;

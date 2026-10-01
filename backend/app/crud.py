@@ -1,5 +1,6 @@
 import json
 import os
+import unicodedata
 from pathlib import Path
 
 from sqlalchemy.exc import IntegrityError
@@ -203,6 +204,24 @@ def delete_movimiento(db: Session, movimiento_id: int) -> bool:
     return True
 
 
+def delete_movimientos_en_lote(db: Session, lista_ids: list[int]) -> int:
+    ids_unicos = list(dict.fromkeys(lista_ids))
+    if not ids_unicos:
+        return 0
+
+    try:
+        eliminados = (
+            db.query(models.Movimiento)
+            .filter(models.Movimiento.id.in_(ids_unicos))
+            .delete(synchronize_session=False)
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return eliminados
+
+
 def create_movimientos_en_lote(
     db: Session, cuenta_id: int, movimientos: list[dict]
 ) -> tuple[int, int] | None:
@@ -299,8 +318,37 @@ def list_movimientos_ordenados(
 
 
 def normalizar_descripcion(valor: str | None) -> str:
-    """Unificar mayúsculas y espacios sin modificar la descripción guardada."""
-    return " ".join((valor or "").lower().split())
+    """Unificar mayúsculas, tildes y espacios sin alterar el texto guardado."""
+    texto = unicodedata.normalize("NFKD", (valor or "").lower())
+    texto = "".join(letra for letra in texto if not unicodedata.combining(letra))
+    return " ".join(texto.split())
+
+
+def buscar_clasificacion_historica(
+    descripcion: str | None,
+    diccionario: dict[str, dict[str, str]],
+) -> dict[str, str] | None:
+    """Priorizar coincidencias exactas y luego la descripción más específica."""
+    clave = normalizar_descripcion(descripcion)
+    if not clave:
+        return None
+
+    clasificacion_parcial = None
+    longitud_coincidencia = 0
+    for descripcion_historica, clasificacion in diccionario.items():
+        clave_historica = normalizar_descripcion(descripcion_historica)
+        if not clave_historica:
+            continue
+        if clave == clave_historica:
+            return clasificacion
+        if (
+            clave_historica in clave or clave in clave_historica
+        ) and len(clave_historica) > longitud_coincidencia:
+            # En empates se conserva la primera: el diccionario está ordenado
+            # por fecha e ID descendentes, por lo que representa la más reciente.
+            clasificacion_parcial = clasificacion
+            longitud_coincidencia = len(clave_historica)
+    return clasificacion_parcial
 
 
 def get_diccionario_clasificacion(

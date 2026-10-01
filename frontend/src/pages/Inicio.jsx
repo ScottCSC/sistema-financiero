@@ -20,6 +20,7 @@ import {
   actualizarMovimiento,
   crearMovimiento,
   eliminarMovimiento,
+  eliminarMovimientosMasivo,
   exportarExcel,
   getCartola,
   getConfiguracion,
@@ -93,6 +94,8 @@ function Inicio() {
   const [busqueda, setBusqueda] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const [eliminandoId, setEliminandoId] = useState(null);
+  const [seleccionados, setSeleccionados] = useState([]);
+  const [eliminandoSeleccionados, setEliminandoSeleccionados] = useState(false);
   const [entradaRapida, setEntradaRapida] = useState(nuevoMovimientoVacio);
   const [guardandoRapido, setGuardandoRapido] = useState(false);
   const [mensajeIngreso, setMensajeIngreso] = useState(null);
@@ -129,6 +132,8 @@ function Inicio() {
     try {
       const data = await getCartola(1);
       setCartola(data);
+      const idsActuales = new Set((data.lineas ?? []).map((linea) => linea.id));
+      setSeleccionados((actuales) => actuales.filter((id) => idsActuales.has(id)));
       return true;
     } catch {
       setError(
@@ -340,6 +345,70 @@ function Inicio() {
     });
   }, [lineasFiltradas, sortConfig]);
 
+  const idsVisibles = useMemo(
+    () => new Set(lineasOrdenadas.map((linea) => linea.id)),
+    [lineasOrdenadas]
+  );
+  const seleccionadosVisibles = useMemo(
+    () => seleccionados.filter((id) => idsVisibles.has(id)),
+    [seleccionados, idsVisibles]
+  );
+  const todasVisiblesSeleccionadas =
+    idsVisibles.size > 0 && seleccionadosVisibles.length === idsVisibles.size;
+  const seleccionParcial = seleccionadosVisibles.length > 0 && !todasVisiblesSeleccionadas;
+  const operacionEnCurso =
+    eliminandoSeleccionados || eliminandoId !== null || guardandoRapido ||
+    guardandoEdicion || guardandoSaldoInicial || importandoExcel;
+
+  function alternarSeleccion(movimientoId) {
+    if (operacionEnCurso) return;
+    setSeleccionados((actuales) => {
+      const visibles = actuales.filter((id) => idsVisibles.has(id));
+      return visibles.includes(movimientoId)
+        ? visibles.filter((id) => id !== movimientoId)
+        : [...visibles, movimientoId];
+    });
+  }
+
+  function alternarSeleccionVisible() {
+    if (operacionEnCurso) return;
+    setSeleccionados(todasVisiblesSeleccionadas ? [] : [...idsVisibles]);
+  }
+
+  async function confirmarEliminacionMasiva() {
+    if (operacionEnCurso || editandoId !== null || editandoSaldoInicial) return;
+    const idsAEliminar = [...seleccionadosVisibles];
+    if (idsAEliminar.length === 0) return;
+    if (!window.confirm(
+      `¿Eliminar ${idsAEliminar.length} movimientos seleccionados? El saldo se recalculará automáticamente.`
+    )) return;
+
+    setEliminandoSeleccionados(true);
+    setMensajeIngreso(null);
+    setError("");
+    try {
+      const resultado = await eliminarMovimientosMasivo(idsAEliminar);
+      setSeleccionados([]);
+      const cartolaActualizada = await cargar();
+      if (cartolaActualizada) {
+        setMensajeIngreso({
+          tipo: "exito",
+          texto: `Se eliminaron ${resultado.eliminados} movimientos. Cartola y saldos recalculados.`,
+        });
+      }
+    } catch (err) {
+      const detalle = err.response?.data?.detail;
+      setMensajeIngreso({
+        tipo: "error",
+        texto: typeof detalle === "string"
+          ? detalle
+          : "No se pudieron eliminar los movimientos seleccionados. Inténtelo nuevamente.",
+      });
+    } finally {
+      setEliminandoSeleccionados(false);
+    }
+  }
+
   function handleSort(key) {
     setSortConfig((actual) => ({
       key,
@@ -353,6 +422,7 @@ function Inicio() {
   }
 
   function restablecerFiltros() {
+    setSeleccionados([]);
     setBusqueda("");
     setFiltroTipo("Todos");
     setFiltroFecha("Todas");
@@ -376,6 +446,7 @@ function Inicio() {
     sortConfig.key !== null;
 
   function iniciarEdicionSaldoInicial() {
+    if (operacionEnCurso) return;
     setNuevoSaldoInicial(Number(cartola?.saldo_inicial ?? 0));
     setEditandoSaldoInicial(true);
     setMensajeIngreso(null);
@@ -387,6 +458,7 @@ function Inicio() {
   }
 
   async function guardarSaldoInicial() {
+    if (operacionEnCurso) return;
     const saldo = Number(nuevoSaldoInicial);
     if (nuevoSaldoInicial === "" || !Number.isInteger(saldo)) {
       setMensajeIngreso({ tipo: "error", texto: "Ingrese un saldo inicial en pesos enteros." });
@@ -417,6 +489,7 @@ function Inicio() {
   }
 
   async function confirmarEliminacion(movimientoId) {
+    if (operacionEnCurso) return;
     const confirmar = window.confirm(
       "¿Estás seguro de que deseas eliminar este movimiento? El saldo se recalculará automáticamente."
     );
@@ -435,6 +508,7 @@ function Inicio() {
   }
 
   function iniciarEdicion(movimiento) {
+    if (operacionEnCurso) return;
     setEditandoId(movimiento.id);
     setFormularioEdicion(crearFormularioEdicion(movimiento, categoriasPlan));
     setMensajeIngreso(null);
@@ -462,6 +536,7 @@ function Inicio() {
   }
 
   async function guardarEdicion(movimientoId) {
+    if (operacionEnCurso) return;
     if (!formularioEdicion || movimientoId !== editandoId) return;
     setMensajeIngreso(null);
 
@@ -545,6 +620,7 @@ function Inicio() {
 
   async function guardarMovimientoRapido(evento) {
     evento.preventDefault();
+    if (operacionEnCurso) return;
     setMensajeIngreso(null);
 
     if (!entradaRapida.descripcion.trim()) {
@@ -612,7 +688,7 @@ function Inicio() {
   async function manejarArchivoExcel(evento) {
     const archivo = evento.target.files?.[0];
     evento.target.value = "";
-    if (!archivo) return;
+    if (!archivo || operacionEnCurso) return;
 
     setImportandoExcel(true);
     setMensajeIngreso(null);
@@ -725,6 +801,7 @@ function Inicio() {
                 value={periodoActual}
                 onChange={(evento) => {
                   const periodo = evento.target.value;
+                  setSeleccionados([]);
                   setPeriodoActual(periodo);
                   if (periodo !== "Todos") setEditandoSaldoInicial(false);
                 }}
@@ -752,6 +829,20 @@ function Inicio() {
                 Limpiar Filtros
               </button>
             )}
+            {seleccionadosVisibles.length > 0 && (
+              <button
+                type="button"
+                className="boton-eliminar-seleccionados"
+                onClick={confirmarEliminacionMasiva}
+                disabled={operacionEnCurso || editandoId !== null || editandoSaldoInicial}
+                aria-busy={eliminandoSeleccionados}
+              >
+                <Trash2 size={20} aria-hidden="true" />
+                {eliminandoSeleccionados
+                  ? "Eliminando…"
+                  : `Eliminar Seleccionados (${seleccionadosVisibles.length})`}
+              </button>
+            )}
           </div>
 
           <div className="importar-excel">
@@ -762,6 +853,7 @@ function Inicio() {
               accept=".xlsx, .xls, .csv"
               onChange={manejarArchivoExcel}
               aria-label="Seleccionar archivo Excel o CSV"
+              disabled={operacionEnCurso}
               hidden
             />
             <button
@@ -772,7 +864,7 @@ function Inicio() {
                 ? "Las descripciones conocidas reciben automáticamente su clasificación anterior."
                 : "Se consultará el historial; las descripciones nuevas quedarán sin clasificar."}
               disabled={
-                importandoExcel || exportandoExcel || guardandoRapido || editandoId !== null
+                operacionEnCurso || exportandoExcel || editandoId !== null
               }
             >
               <Upload size={22} aria-hidden="true" />
@@ -783,7 +875,7 @@ function Inicio() {
               className="boton-importar-excel"
               onClick={manejarExportacionExcel}
               disabled={
-                exportandoExcel || importandoExcel || guardandoRapido || editandoId !== null
+                exportandoExcel || operacionEnCurso || editandoId !== null
               }
             >
               <Download size={22} aria-hidden="true" />
@@ -801,7 +893,10 @@ function Inicio() {
             type="text"
             placeholder="Buscar movimientos..."
             value={busqueda}
-            onChange={(evento) => setBusqueda(evento.target.value)}
+            onChange={(evento) => {
+              setSeleccionados([]);
+              setBusqueda(evento.target.value);
+            }}
             className="input-busqueda-panel"
           />
 
@@ -816,7 +911,10 @@ function Inicio() {
                 type="button"
                 className={filtroTipo === filtro.valor ? "activa" : ""}
                 aria-pressed={filtroTipo === filtro.valor}
-                onClick={() => setFiltroTipo(filtro.valor)}
+                onClick={() => {
+                  setSeleccionados([]);
+                  setFiltroTipo(filtro.valor);
+                }}
               >
                 {filtro.etiqueta}
               </button>
@@ -852,6 +950,21 @@ function Inicio() {
             <table className="tabla-cartola" aria-label="Movimientos del libro banco">
               <thead>
                 <tr>
+                  <th scope="col" className="columna-seleccion">
+                    <label className="seleccion-movimiento" title="Seleccionar todos los movimientos visibles">
+                      <input
+                        type="checkbox"
+                        className="checkbox-movimiento"
+                        aria-label="Seleccionar todos los movimientos visibles"
+                        checked={todasVisiblesSeleccionadas}
+                        ref={(checkbox) => {
+                          if (checkbox) checkbox.indeterminate = seleccionParcial;
+                        }}
+                        onChange={alternarSeleccionVisible}
+                        disabled={operacionEnCurso || idsVisibles.size === 0}
+                      />
+                    </label>
+                  </th>
                   <th
                     scope="col"
                     aria-sort={sortConfig.key === "fecha" ? (sortConfig.direction === "asc" ? "ascending" : "descending") : "none"}
@@ -883,6 +996,7 @@ function Inicio() {
                           aria-label="Filtrar por fecha"
                           value={filtroFecha}
                           onChange={(evento) => {
+                            setSeleccionados([]);
                             setFiltroFecha(evento.target.value);
                             setMenuFiltroAbierto(null);
                           }}
@@ -934,6 +1048,7 @@ function Inicio() {
                           aria-label="Filtrar por sucursal"
                           value={filtroSucursal}
                           onChange={(evento) => {
+                            setSeleccionados([]);
                             setFiltroSucursal(evento.target.value);
                             setMenuFiltroAbierto(null);
                           }}
@@ -978,12 +1093,14 @@ function Inicio() {
             </thead>
             <tbody>
               <tr className="fila-ingreso-destacada">
+                <td className="columna-seleccion" />
                 <td>
                   <input
                     form="form-ingreso-rapido"
                     type="date"
                     aria-label="Fecha del movimiento"
                     value={entradaRapida.fecha}
+                    disabled={operacionEnCurso}
                     onChange={(evento) => actualizarEntradaRapida("fecha", evento.target.value)}
                     required
                   />
@@ -995,6 +1112,7 @@ function Inicio() {
                     aria-label="Sucursal"
                     placeholder="Ej: Centro"
                     value={entradaRapida.sucursal}
+                    disabled={operacionEnCurso}
                     onChange={(evento) => actualizarEntradaRapida("sucursal", evento.target.value)}
                     required
                   />
@@ -1006,6 +1124,7 @@ function Inicio() {
                     aria-label="Descripción"
                     placeholder="Ej: Pago luz"
                     value={entradaRapida.descripcion}
+                    disabled={operacionEnCurso}
                     onChange={(evento) => actualizarEntradaRapida("descripcion", evento.target.value)}
                     required
                   />
@@ -1017,6 +1136,7 @@ function Inicio() {
                     aria-label="Centro de costo"
                     placeholder="Centro de costo"
                     value={entradaRapida.centro_costo}
+                    disabled={operacionEnCurso}
                     onChange={(evento) =>
                       actualizarEntradaRapida("centro_costo", evento.target.value)
                     }
@@ -1027,6 +1147,7 @@ function Inicio() {
                     form="form-ingreso-rapido"
                     aria-label="Categoría"
                     value={entradaRapida.categoria}
+                    disabled={operacionEnCurso}
                     onChange={(evento) => actualizarEntradaRapida("categoria", evento.target.value)}
                     required
                   >
@@ -1044,6 +1165,7 @@ function Inicio() {
                     form="form-ingreso-rapido"
                     aria-label="Subcategoría"
                     value={entradaRapida.subcategoria}
+                    disabled={operacionEnCurso}
                     onChange={(evento) => actualizarEntradaRapida("subcategoria", evento.target.value)}
                     required
                   >
@@ -1064,7 +1186,7 @@ function Inicio() {
                     onChange={(evento) =>
                       actualizarEntradaRapida("cargo", formatearMontoEntrada(evento.target.value))
                     }
-                    disabled={Boolean(entradaRapida.abono)}
+                    disabled={Boolean(entradaRapida.abono) || operacionEnCurso}
                   />
                 </td>
                 <td>
@@ -1079,7 +1201,7 @@ function Inicio() {
                     onChange={(evento) =>
                       actualizarEntradaRapida("abono", formatearMontoEntrada(evento.target.value))
                     }
-                    disabled={Boolean(entradaRapida.cargo)}
+                    disabled={Boolean(entradaRapida.cargo) || operacionEnCurso}
                   />
                 </td>
                 <td className="col-saldo saldo-pendiente" aria-label="Saldo calculado al guardar">
@@ -1090,7 +1212,7 @@ function Inicio() {
                     form="form-ingreso-rapido"
                     type="submit"
                     className="boton-guardar-rapido"
-                    disabled={guardandoRapido || importandoExcel || editandoId !== null}
+                    disabled={operacionEnCurso || editandoId !== null}
                   >
                     <Plus size={20} aria-hidden="true" />
                     {guardandoRapido ? "Guardando…" : "Guardar"}
@@ -1100,7 +1222,7 @@ function Inicio() {
 
               {lineasOrdenadas.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="tabla-vacia">
+                    <td colSpan={11} className="tabla-vacia">
                       {lineasDelPeriodo.length === 0
                         ? periodoActual
                           ? "No hay movimientos en este período."
@@ -1115,6 +1237,18 @@ function Inicio() {
                     const estaEditando = linea.id === editandoId;
                     return (
                       <tr key={linea.id} className={estaEditando ? "fila-en-edicion" : ""}>
+                        <td className="columna-seleccion">
+                          <label className="seleccion-movimiento" title={`Seleccionar ${linea.descripcion}`}>
+                            <input
+                              type="checkbox"
+                              className="checkbox-movimiento"
+                              aria-label={`Seleccionar movimiento ${linea.id}: ${linea.descripcion}`}
+                              checked={seleccionadosVisibles.includes(linea.id)}
+                              onChange={() => alternarSeleccion(linea.id)}
+                              disabled={operacionEnCurso}
+                            />
+                          </label>
+                        </td>
                         {estaEditando && formularioEdicion ? (
                           <>
                             <td>
@@ -1124,7 +1258,7 @@ function Inicio() {
                                 aria-label="Fecha del movimiento"
                                 value={formularioEdicion.fecha}
                                 onChange={(evento) => actualizarCampoEdicion("fecha", evento.target.value)}
-                                disabled={guardandoEdicion}
+                                disabled={operacionEnCurso}
                               />
                             </td>
                             <td>
@@ -1134,7 +1268,7 @@ function Inicio() {
                                 aria-label="Sucursal"
                                 value={formularioEdicion.sucursal}
                                 onChange={(evento) => actualizarCampoEdicion("sucursal", evento.target.value)}
-                                disabled={guardandoEdicion}
+                                disabled={operacionEnCurso}
                               />
                             </td>
                             <td>
@@ -1144,7 +1278,7 @@ function Inicio() {
                                 aria-label="Descripción"
                                 value={formularioEdicion.descripcion}
                                 onChange={(evento) => actualizarCampoEdicion("descripcion", evento.target.value)}
-                                disabled={guardandoEdicion}
+                                disabled={operacionEnCurso}
                               />
                             </td>
                             <td>
@@ -1156,7 +1290,7 @@ function Inicio() {
                                 onChange={(evento) =>
                                   actualizarCampoEdicion("centro_costo", evento.target.value)
                                 }
-                                disabled={guardandoEdicion}
+                                disabled={operacionEnCurso}
                               />
                             </td>
                             <td>
@@ -1167,7 +1301,7 @@ function Inicio() {
                                 onChange={(evento) =>
                                   actualizarCampoEdicion("categoria", evento.target.value)
                                 }
-                                disabled={guardandoEdicion}
+                                disabled={operacionEnCurso}
                               >
                                 {Object.entries(planCuentas).map(([grupo, categorias]) => (
                                   <optgroup key={grupo} label={grupo}>
@@ -1186,7 +1320,7 @@ function Inicio() {
                                 onChange={(evento) =>
                                   actualizarCampoEdicion("subcategoria", evento.target.value)
                                 }
-                                disabled={guardandoEdicion}
+                                disabled={operacionEnCurso}
                               >
                                 {(categoriasPlan[formularioEdicion.categoria] ?? []).map((subcategoria) => (
                                   <option key={subcategoria} value={subcategoria}>{subcategoria}</option>
@@ -1202,7 +1336,7 @@ function Inicio() {
                                 placeholder="$ Cargo"
                                 value={formularioEdicion.cargo}
                                 onChange={(evento) => actualizarCampoEdicion("cargo", evento.target.value)}
-                                disabled={Boolean(formularioEdicion.abono) || guardandoEdicion}
+                                disabled={Boolean(formularioEdicion.abono) || operacionEnCurso}
                               />
                             </td>
                             <td>
@@ -1214,7 +1348,7 @@ function Inicio() {
                                 placeholder="$ Abono"
                                 value={formularioEdicion.abono}
                                 onChange={(evento) => actualizarCampoEdicion("abono", evento.target.value)}
-                                disabled={Boolean(formularioEdicion.cargo) || guardandoEdicion}
+                                disabled={Boolean(formularioEdicion.cargo) || operacionEnCurso}
                               />
                             </td>
                             <td className={`col-monto col-saldo${saldoCronologiaAlterada ? " saldo-cronologia-alterada" : ""}${linea.saldo_resultante < 0 ? " saldo-negativo" : ""}`}>
@@ -1247,7 +1381,7 @@ function Inicio() {
                                 type="button"
                                 className="boton-edicion boton-confirmar-edicion"
                                 onClick={() => guardarEdicion(linea.id)}
-                                disabled={guardandoEdicion}
+                                disabled={operacionEnCurso}
                                 aria-label={guardandoEdicion ? "Guardando cambios" : "Guardar cambios"}
                                 title="Guardar cambios"
                               >
@@ -1257,7 +1391,7 @@ function Inicio() {
                                 type="button"
                                 className="boton-edicion boton-cancelar-edicion"
                                 onClick={cancelarEdicion}
-                                disabled={guardandoEdicion}
+                                disabled={operacionEnCurso}
                                 aria-label="Cancelar edición"
                                 title="Cancelar edición"
                               >
@@ -1270,7 +1404,7 @@ function Inicio() {
                                 type="button"
                                 className="boton-edicion boton-iniciar-edicion"
                                 onClick={() => iniciarEdicion(linea)}
-                                disabled={editandoId !== null || eliminandoId !== null}
+                                disabled={editandoId !== null || operacionEnCurso}
                                 aria-label={`Editar ${linea.descripcion}`}
                                 title="Editar movimiento"
                               >
@@ -1281,7 +1415,7 @@ function Inicio() {
                                 className="boton-eliminar"
                                 onClick={() => confirmarEliminacion(linea.id)}
                                 disabled={
-                                  eliminandoId === linea.id ||
+                                  operacionEnCurso ||
                                   editandoId !== null ||
                                   guardandoEdicion
                                 }
@@ -1321,7 +1455,7 @@ function Inicio() {
                     onChange={(evento) =>
                       setNuevoSaldoInicial(evento.target.value === "" ? "" : Number(evento.target.value))
                     }
-                    disabled={guardandoSaldoInicial}
+                    disabled={operacionEnCurso}
                     onKeyDown={(evento) => {
                       if (evento.key === "Enter") void guardarSaldoInicial();
                       if (evento.key === "Escape") cancelarEdicionSaldoInicial();
@@ -1332,7 +1466,7 @@ function Inicio() {
                       type="button"
                       className="boton-edicion boton-confirmar-edicion"
                       onClick={guardarSaldoInicial}
-                      disabled={guardandoSaldoInicial}
+                      disabled={operacionEnCurso}
                       aria-label={guardandoSaldoInicial ? "Guardando saldo inicial" : "Guardar saldo inicial"}
                       title="Guardar saldo inicial"
                     >
@@ -1342,7 +1476,7 @@ function Inicio() {
                       type="button"
                       className="boton-edicion boton-cancelar-edicion"
                       onClick={cancelarEdicionSaldoInicial}
-                      disabled={guardandoSaldoInicial}
+                      disabled={operacionEnCurso}
                       aria-label="Cancelar edición del saldo inicial"
                       title="Cancelar"
                     >
@@ -1358,6 +1492,7 @@ function Inicio() {
                       type="button"
                       className="boton-editar-saldo-base"
                       onClick={iniciarEdicionSaldoInicial}
+                      disabled={operacionEnCurso || editandoId !== null}
                       aria-label="Editar saldo inicial de la cuenta"
                     >
                       <Pencil size={18} aria-hidden="true" />

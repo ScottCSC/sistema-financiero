@@ -4,6 +4,7 @@ import re
 import secrets
 import unicodedata
 from pathlib import Path
+from typing import Annotated
 
 import pandas as pd
 from fastapi import Body, Depends, FastAPI, File, HTTPException, Request, UploadFile
@@ -12,7 +13,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
-from pydantic import ValidationError
+from pydantic import Field, ValidationError
 from sqlalchemy import inspect as sqlalchemy_inspect, text
 from sqlalchemy.orm import Session
 
@@ -386,6 +387,15 @@ def leer_diccionario_clasificacion(cuenta_id: int = 1, db: Session = Depends(get
     return crud.get_diccionario_clasificacion(db, cuenta_id)
 
 
+@app.delete("/api/movimientos/masivo", status_code=200)
+def eliminar_movimientos_masivo(
+    lista_ids: list[Annotated[int, Field(strict=True, gt=0)]] = Body(..., min_length=1),
+    db: Session = Depends(get_db),
+):
+    eliminados = crud.delete_movimientos_en_lote(db, lista_ids)
+    return {"eliminados": eliminados}
+
+
 @app.post("/movimientos/importar")
 def importar_movimientos(
     file: UploadFile = File(...), db: Session = Depends(get_db)
@@ -539,8 +549,8 @@ def importar_movimientos(
             else "Sin subcategoría"
         ) or "Sin subcategoría"
         if crud.normalizar_descripcion(categoria) == "sin clasificar":
-            clasificacion_historica = diccionario_clasificacion.get(
-                crud.normalizar_descripcion(descripcion)
+            clasificacion_historica = crud.buscar_clasificacion_historica(
+                descripcion, diccionario_clasificacion
             )
             if clasificacion_historica is not None:
                 categoria = clasificacion_historica["categoria"]

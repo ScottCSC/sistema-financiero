@@ -14,14 +14,29 @@ La importación reconoce `Nº Documento`, `N de documento`, `Documento` y
 exportaciones anteriores. La exportación usa la cabecera `Nº Documento`.
 
 Antes de importar se carga la memoria de clasificaciones de la cuenta. El
-servidor compara descripciones en minúsculas, sin espacios sobrantes, y usa la
-clasificación del movimiento más reciente por fecha e ID. Las descripciones sin
+servidor compara descripciones en minúsculas, sin tildes ni espacios sobrantes.
+Primero busca una coincidencia exacta; si no existe, busca una descripción que
+contenga a la otra. Si hay varias coincidencias parciales, prioriza la clave
+histórica más específica (la más larga), y en empate el movimiento más reciente
+por fecha e ID. Las descripciones sin
 coincidencia quedan como `Sin clasificar` / `Sin subcategoría`. Si la planilla
 trae una categoría explícita, conserva esa clasificación. Los duplicados se
 siguen omitiendo y no se modifican movimientos que ya estén guardados.
 
 El diccionario también está disponible en el endpoint protegido
 `GET /api/diccionario-clasificacion?cuenta_id=1`.
+
+## Eliminar varios movimientos
+
+En el Libro Banco, marque las filas que desea eliminar. El checkbox de cabecera
+selecciona o deselecciona todos los movimientos visibles, respetando el período
+y los filtros. El botón `Eliminar Seleccionados (X)` muestra cuántos se borrarán
+y exige confirmación. La selección se limpia al cambiar de período o filtros,
+para evitar borrar filas ocultas. Después de eliminar se recarga la cartola para
+recalcular los saldos.
+
+El endpoint protegido `DELETE /api/movimientos/masivo` recibe una lista JSON de
+IDs enteros positivos y devuelve `{ "eliminados": cantidad }`.
 
 ## Despliegue en Render
 
