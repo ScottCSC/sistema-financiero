@@ -8,7 +8,18 @@ cd backend
 if exist "venv\Scripts\activate.bat" call venv\Scripts\activate.bat
 if exist ".venv\Scripts\activate.bat" call .venv\Scripts\activate.bat
 if exist "env\Scripts\activate.bat" call env\Scripts\activate.bat
+@echo off
+cd C:\Users\Home\Desktop\Visual\control-cartola\backend
 
+:: Configuramos credenciales temporales para el entorno local
+set ADMIN_USER=admin
+set ADMIN_PASSWORD=admin
+
+:: Activamos el entorno virtual (si lo tienes en el bat)
+call venv\Scripts\activate
+
+:: Iniciamos el servidor
+uvicorn app.main:app --reload
 :: Iniciar el servidor usando el módulo de Python
 start "Servidor Cartola" cmd /k "python -m uvicorn app.main:app --port 8000"
 
