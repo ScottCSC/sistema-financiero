@@ -4,8 +4,25 @@ Sistema financiero para PYMEs: Libro Banco, Flujo de Caja, plan de cuentas
 configurable y ayuda integrada.
 
 - Backend: Python, FastAPI, SQLAlchemy, SQLite local o PostgreSQL.
-- Frontend: React y Vite; FastAPI sirve la versión compilada en `frontend/dist`.
+- Frontend: React, Vite y Recharts; FastAPI sirve la versión compilada en `frontend/dist`.
 - Acceso: autenticación HTTP Basic con credenciales definidas en el entorno.
+
+## Dashboard (Fase 1 del ERP)
+
+El Dashboard es la pantalla principal (`/`). Libro Banco ahora está en
+`/libro-banco`, seguido de Flujo de Caja, Ajustes y Ayuda en la navegación.
+
+Los indicadores de ingresos, egresos y flujo neto corresponden al mes actual
+en `America/Santiago`. El anillo distribuye sus egresos por categoría; el
+gráfico de barras compara los últimos seis meses calendario, incluido el
+actual y los meses sin actividad. La leyenda y el detalle tabular permiten
+consultar montos y porcentajes sin depender del color o del mouse.
+
+La dependencia de gráficos se instala desde la raíz con:
+
+```sh
+npm install recharts --prefix frontend
+```
 
 ## Importación y memoria de clasificación
 

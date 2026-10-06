@@ -37,7 +37,7 @@ function Ayuda() {
         <p>Presione <strong>Importar Excel</strong> y elija la cartola descargada de su banco. Los movimientos se incorporan a la tabla. Con <strong>Exportar</strong> puede descargar su cartola en Excel.</p>
         <p>Use el lápiz de una fila para corregir un movimiento. También puede buscar o elegir un período para encontrarlo más fácilmente.</p>
         <p>Deslice la barra inferior para ver las columnas de la derecha. Desplácese dentro de la tabla para recorrer los movimientos; los títulos y la fila de ingreso se mantienen visibles.</p>
-        <Link className="ayuda-enlace" to="/">Ir al Libro Banco <span aria-hidden="true">→</span></Link>
+        <Link className="ayuda-enlace" to="/libro-banco">Ir al Libro Banco <span aria-hidden="true">→</span></Link>
       </section>
 
       <section className="ayuda-seccion" aria-labelledby="ayuda-flujo-caja">
