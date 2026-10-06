@@ -46,6 +46,21 @@ npm install jspdf jspdf-autotable --prefix frontend
 Las librerías de PDF se cargan al solicitar el reporte. Después de instalar,
 recompile el frontend siguiendo las instrucciones al final de este documento.
 
+## Análisis Ejecutivo (Fase 3 del ERP)
+
+El Dashboard incluye un resumen automático del mes actual, calculado localmente
+con los mismos datos que alimentan sus indicadores y gráficos. Muestra la
+categoría con mayor gasto, su porcentaje de los egresos, el resultado de ingresos
+menos egresos y la evolución del flujo neto respecto del mes anterior.
+
+La comparación identifica los meses sin movimientos registrados y los flujos
+previos de cero o negativos para evitar porcentajes engañosos. El mes actual
+sigue en curso: sus importes se comparan con los registros del mes anterior
+completo. Al pulsar `Actualizar`, se renuevan también estas conclusiones.
+
+Este módulo usa reglas de cálculo en JavaScript y no requiere servicios de IA
+externos ni nuevas dependencias.
+
 ## Importación y memoria de clasificación
 
 La importación reconoce `Nº Documento`, `N de documento`, `Documento` y

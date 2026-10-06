@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CircleAlert, RefreshCw } from "lucide-react";
+import { CircleAlert, RefreshCw, Sparkles } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import { CUENTA_ID, getCartola } from "../api.js";
 import { crearResumenDashboard } from "../utils/dashboard.js";
+import { crearAnalisisEjecutivo } from "../utils/analisisEjecutivo.js";
 import { formatearMoneda } from "../utils/formato.js";
 
 const COLORES_EGRESOS = [
@@ -76,6 +77,7 @@ function Dashboard() {
   }, [version]);
 
   const resumen = useMemo(() => crearResumenDashboard(movimientos), [movimientos]);
+  const analisis = useMemo(() => crearAnalisisEjecutivo(resumen), [resumen]);
 
   const actualizar = () => setVersion((anterior) => anterior + 1);
 
@@ -142,6 +144,29 @@ function Dashboard() {
               </p>
               <p className="dashboard-kpi-detalle">Ingresos menos egresos del mes</p>
             </article>
+          </section>
+
+          <section className="dashboard-analisis" aria-labelledby="dashboard-analisis-titulo">
+            <header className="dashboard-analisis-cabecera">
+              <span className="dashboard-analisis-icono" aria-hidden="true">
+                <Sparkles size={22} />
+              </span>
+              <div>
+                <h2 id="dashboard-analisis-titulo">Análisis Ejecutivo</h2>
+                <p>Resumen automático de {resumen.mesActual.etiqueta}</p>
+              </div>
+            </header>
+            <ul className="dashboard-analisis-lista">
+              {analisis.map((conclusion) => (
+                <li key={conclusion.id} className={`dashboard-analisis-conclusion ${conclusion.tono}`}>
+                  <h3>{conclusion.titulo}</h3>
+                  <p>{conclusion.texto}</p>
+                </li>
+              ))}
+            </ul>
+            <p className="dashboard-analisis-nota">
+              Se consideran los movimientos registrados. El mes actual sigue en curso; la comparación usa el mes anterior completo.
+            </p>
           </section>
 
           <section className="dashboard-graficos" aria-label="Gráficos financieros">

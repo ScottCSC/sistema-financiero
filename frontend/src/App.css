@@ -161,6 +161,28 @@ h3 { font-size: 14px; margin: 0; }
 .dashboard-kpi-detalle { margin: 8px 0 0; font-size: 13px; color: #64748b; }
 .dashboard-pagina .importe-abono { color: var(--color-ingreso); }
 .dashboard-pagina .importe-cargo { color: var(--color-egreso); }
+.dashboard-analisis {
+  min-width: 0;
+  margin-bottom: 20px;
+  padding: 24px;
+  background: var(--color-card);
+  border: 1px solid #cbd5e1;
+  border-top: 3px solid var(--color-accent);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+}
+.dashboard-analisis-cabecera { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.dashboard-analisis-icono { display: inline-flex; flex: 0 0 44px; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--color-line); border-radius: 10px; background: #f8fafc; color: var(--color-accent); }
+.dashboard-analisis-cabecera h2 { margin: 0; font-size: 20px; color: #1e293b; }
+.dashboard-analisis-cabecera p { margin: 4px 0 0; font-size: 14px; color: var(--color-muted); }
+.dashboard-analisis-lista { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; padding: 0; margin: 0; list-style: none; }
+.dashboard-analisis-conclusion { min-width: 0; overflow-wrap: anywhere; }
+.dashboard-analisis-conclusion + .dashboard-analisis-conclusion { padding-left: 20px; border-left: 1px solid var(--color-line); }
+.dashboard-analisis-conclusion h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; color: #1e293b; }
+.dashboard-analisis-conclusion.positivo h3 { color: var(--color-ingreso); }
+.dashboard-analisis-conclusion.negativo h3 { color: var(--color-egreso); }
+.dashboard-analisis-conclusion p { margin: 0; font-size: 16px; line-height: 1.65; color: var(--color-text); }
+.dashboard-analisis-nota { margin: 20px 0 0; padding-top: 14px; border-top: 1px solid var(--color-line); font-size: 13px; line-height: 1.6; color: var(--color-muted); }
 .dashboard-graficos { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 20px; align-items: start; }
 .dashboard-tarjeta { padding: 24px; }
 .dashboard-tarjeta-cabecera { margin-bottom: 20px; }
@@ -188,10 +210,13 @@ h3 { font-size: 14px; margin: 0; }
 .dashboard-error, .dashboard-cargando { padding: 28px 24px; background: #fff; border: 1px solid var(--color-line); border-radius: 12px; box-shadow: var(--shadow-card); }
 .dashboard-error { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
 .dashboard-error p { flex: 1 1 240px; margin: 0; }
-@media (max-width: 1000px) { .dashboard-graficos { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 1000px) {
+  .dashboard-graficos, .dashboard-analisis-lista { grid-template-columns: minmax(0, 1fr); }
+  .dashboard-analisis-conclusion + .dashboard-analisis-conclusion { padding-left: 0; padding-top: 16px; border-left: 0; border-top: 1px solid var(--color-line); }
+}
 @media (max-width: 640px) {
   .dashboard-kpis { grid-template-columns: minmax(0, 1fr); }
-  .dashboard-kpi, .dashboard-tarjeta { padding: 20px 16px; }
+  .dashboard-kpi, .dashboard-tarjeta, .dashboard-analisis { padding: 20px 16px; }
   .dashboard-donut-leyenda li { grid-template-columns: minmax(0, 1fr) auto; }
   .dashboard-leyenda-porcentaje { grid-column: 2; }
 }
