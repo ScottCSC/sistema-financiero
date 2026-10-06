@@ -24,6 +24,28 @@ La dependencia de gráficos se instala desde la raíz con:
 npm install recharts --prefix frontend
 ```
 
+## Reporte PDF (Fase 2 del ERP)
+
+En Flujo de Caja, seleccione la agrupación semanal, mensual o anual y pulse
+`Generar Reporte PDF`. El reporte descarga la matriz actual en A4 apaisado,
+incluyendo las subcategorías que tenga desplegadas. El encabezado usa el
+titular de la cuenta como nombre de empresa, el título `Reporte Financiero`
+y la fecha de emisión. Los controles y mensajes emergentes se excluyen.
+
+Las tablas extensas se distribuyen en varias páginas, repitiendo la columna
+de categorías y las cabeceras de períodos. El documento conserva los bloques,
+subtotales, flujo neto, saldo acumulado y distinción visual de la proyección.
+La descarga se genera localmente en el navegador.
+
+Dependencias de esta fase, desde la raíz:
+
+```sh
+npm install jspdf jspdf-autotable --prefix frontend
+```
+
+Las librerías de PDF se cargan al solicitar el reporte. Después de instalar,
+recompile el frontend siguiendo las instrucciones al final de este documento.
+
 ## Importación y memoria de clasificación
 
 La importación reconoce `Nº Documento`, `N de documento`, `Documento` y

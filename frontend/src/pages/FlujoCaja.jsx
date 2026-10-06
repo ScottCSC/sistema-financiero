@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import { CircleAlert, ChevronDown, ChevronRight, Info } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CircleAlert, ChevronDown, ChevronRight, Download, Info, LoaderCircle } from "lucide-react";
 import { CUENTA_ID, getCartola } from "../api.js";
 import { formatearMoneda } from "../utils/formato.js";
+import { exportarFlujoPdf } from "../utils/exportarFlujoPdf.js";
 
 const FORMATO_MES = new Intl.DateTimeFormat("es-ES", { month: "long", timeZone: "UTC" });
 
@@ -41,10 +42,15 @@ const TEXTOS_AGRUPACION = {
 function FlujoCaja() {
   const [agrupacion, setAgrupacion] = useState("mensual");
   const [movimientos, setMovimientos] = useState([]);
+  const [cuenta, setCuenta] = useState(null);
   const [saldoInicial, setSaldoInicial] = useState(0);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [categoriasCerradas, setCategoriasCerradas] = useState(() => new Set());
+  const [generandoPdf, setGenerandoPdf] = useState(false);
+  const [mensajePdf, setMensajePdf] = useState("");
+  const [errorPdf, setErrorPdf] = useState("");
+  const tablaRef = useRef(null);
 
   useEffect(() => {
     let activo = true;
@@ -56,6 +62,7 @@ function FlujoCaja() {
         const cartola = await getCartola(CUENTA_ID);
         if (!activo) return;
         setMovimientos(Array.isArray(cartola?.lineas) ? cartola.lineas : []);
+        setCuenta(cartola.cuenta ?? null);
         setSaldoInicial(Number(cartola.cuenta?.saldo_inicial ?? cartola.saldo_inicial ?? 0));
       } catch (errorCarga) {
         if (activo) {
@@ -234,6 +241,30 @@ function FlujoCaja() {
     return "monto-flujo";
   }
 
+  async function generarReportePdf() {
+    if (generandoPdf) return;
+    setGenerandoPdf(true);
+    setMensajePdf("");
+    setErrorPdf("");
+
+    try {
+      await exportarFlujoPdf({
+        tabla: tablaRef.current,
+        empresa: cuenta?.titular || "Control Cartola",
+        agrupacion,
+      });
+      setMensajePdf("Reporte PDF generado.");
+    } catch (errorExportacion) {
+      setErrorPdf(
+        errorExportacion instanceof Error
+          ? `No se pudo generar el reporte PDF. ${errorExportacion.message}`
+          : "No se pudo generar el reporte PDF. Intente nuevamente."
+      );
+    } finally {
+      setGenerandoPdf(false);
+    }
+  }
+
   if (cargando) {
     return <div className="loading-mensaje" role="status">Cargando flujo de caja...</div>;
   }
@@ -253,21 +284,37 @@ function FlujoCaja() {
         <p className="flujo-eyebrow">Inteligencia de negocios</p>
         <div className="flujo-titulo-controles">
           <h1>Flujo de Caja</h1>
-          <label className="selector-periodo selector-agrupacion">
-            Agrupar por
-            <select value={agrupacion} onChange={(evento) => setAgrupacion(evento.target.value)}>
-              <option value="semanal">Semanal</option>
-              <option value="mensual">Mensual</option>
-              <option value="anual">Anual</option>
-            </select>
-          </label>
+          <div className="flujo-acciones">
+            <label className="selector-periodo selector-agrupacion">
+              Agrupar por
+              <select value={agrupacion} onChange={(evento) => setAgrupacion(evento.target.value)}>
+                <option value="semanal">Semanal</option>
+                <option value="mensual">Mensual</option>
+                <option value="anual">Anual</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              className="boton-generar-pdf"
+              onClick={generarReportePdf}
+              disabled={generandoPdf}
+              aria-busy={generandoPdf}
+            >
+              {generandoPdf
+                ? <LoaderCircle size={18} className="icono-cargando-pdf" aria-hidden="true" />
+                : <Download size={18} aria-hidden="true" />}
+              {generandoPdf ? "Generando reporte..." : "Generar Reporte PDF"}
+            </button>
+          </div>
         </div>
         <p>Ingresos y egresos por categoría, {TEXTOS_AGRUPACION[agrupacion].detalle}.</p>
+        {mensajePdf && <p className="reporte-pdf-mensaje" role="status">{mensajePdf}</p>}
+        {errorPdf && <p className="reporte-pdf-error" role="alert">{errorPdf}</p>}
       </header>
 
       <section className="envoltorio-flujo" aria-label="Matriz de flujo de caja">
           <div className="table-responsive tabla-flujo-scroll" tabIndex={0} role="region" aria-label="Tabla de flujo de caja, desplazable horizontal y verticalmente">
-            <table className="tabla-flujo">
+            <table className="tabla-flujo" ref={tablaRef}>
               <thead>
                 <tr>
                   <th scope="col">Categoría / Subcategoría</th>
